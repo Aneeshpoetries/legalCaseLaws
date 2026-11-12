@@ -1,0 +1,6 @@
+{
+  "name": "MK Professional Legal Bulletin",
+  "description": "AI-Powered Legal Intelligence, Regulatory Monitoring & Automated Daily Circulation Platform published by Manish Khandelwal & Co.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

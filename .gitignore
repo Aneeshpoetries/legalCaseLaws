@@ -1,0 +1,16 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+data/*.sqlite*
+public/uploads/
+test_*.mjs
+inspect_*.mjs
+convert_to_full_pages.py
+fix_app_pages.py
+patch_admin_modal.py
+set_auto_publish.py

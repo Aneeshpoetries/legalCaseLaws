@@ -1,0 +1,915 @@
+# MASTER PROMPT: BUILD MK PROFESSIONAL LEGAL BULLETIN
+## AI-Powered Legal Intelligence, Regulatory Monitoring & Automated Daily Circulation Platform
+
+Act as a Principal Software Architect, Senior Full-Stack Engineer, AI/ML Engineer, Database Architect, DevOps Engineer and UI/UX Designer with 15+ years of experience building enterprise-grade SaaS platforms.
+
+Your task is to DESIGN, DEVELOP, TEST AND DEPLOY a complete, production-ready platform named:
+
+**MK PROFESSIONAL LEGAL BULLETIN**
+
+Published by Manish Khandelwal & Co.
+
+This is not a demo, college project, static website, UI prototype or ordinary CRUD application. It must be a fully functional, database-driven, AI-powered legal intelligence platform.
+
+You must implement actual functionality. Do not create fake dashboards, dummy statistics, simulated API responses, hardcoded legal updates or non-functional buttons.
+
+---
+
+# 1. CORE OBJECTIVE
+
+Build a platform that automatically monitors Indian legal, regulatory and judicial sources, discovers new notifications, circulars, amendments and judgments, processes original documents, uses AI to prepare structured legal research, and publishes verified updates on a professional public-facing bulletin website.
+
+The platform must operate on a daily basis without requiring the administrator to manually search every government website.
+
+The system should support:
+
+- Direct Tax
+- GST and Indirect Tax
+- Companies Act
+- Insolvency and Bankruptcy Code (IBC)
+- SEBI
+- RBI
+- Labour Laws
+- DPDP and IT Laws
+- Judicial Decisions
+- Other configurable legal domains
+
+The architecture must be extensible. Adding a new legal category, government authority, court or data source must not require modifying frontend components or hardcoding new business data.
+
+# 2. MANDATORY TECHNOLOGY STACK
+
+Use the following stack unless the existing project has a compelling architectural reason to retain an alternative.
+
+Frontend:
+- React 19
+- Vite
+- JavaScript ES2024 (STRICTLY NO TYPESCRIPT)
+- Tailwind CSS
+- React Router
+- Axios
+- React Hook Form
+- Zod
+- Framer Motion
+- Recharts
+- React Hot Toast
+
+Backend:
+- Node.js
+- Express.js
+- REST APIs
+- Modular controller-service-repository architecture
+- Background processing and scheduled jobs
+
+Database:
+- PostgreSQL
+- Prisma ORM
+- Proper relational schema
+- Database migrations
+- Foreign keys and indexes
+- Transactions wherever required
+
+Authentication:
+- Supabase Auth or a secure equivalent
+- Role-based access control
+- Admin and editor permissions
+- Secure session management
+
+AI:
+- LLM integration through a provider-independent service layer
+- Configurable AI providers and models
+- Structured JSON output
+- Source-grounded document analysis
+- Configurable prompts stored in the database
+
+Storage:
+- Supabase Storage or S3-compatible object storage
+- Private buckets for unpublished documents
+- Controlled access to published documents
+
+Background Jobs:
+- Prefer PostgreSQL-backed job processing initially to avoid unnecessary infrastructure costs.
+- Use pg-boss or an equivalent reliable job queue.
+- Introduce Redis/BullMQ only when actual workload justifies the additional infrastructure.
+
+Deployment:
+- Frontend: Vercel
+- Backend: Render or another suitable hosting provider
+- Database: PostgreSQL managed service
+- Storage: Supabase Storage or S3-compatible storage
+
+All secrets must be stored in environment variables. Never expose private API keys in frontend code.
+
+# 3. MOST IMPORTANT REQUIREMENT: ZERO HARDCODED BUSINESS DATA
+
+The application must be genuinely dynamic.
+
+Absolutely do not hardcode:
+
+- Legal authorities
+- Government websites
+- Legal categories
+- Courts and tribunals
+- Notifications
+- Judgments
+- Legal updates
+- Dashboard statistics
+- Update numbers
+- Filter options
+- Admin credentials
+- AI-generated content
+- Publication records
+- Source configurations
+- API credentials
+
+Everything that represents business data must come from PostgreSQL or an appropriate external source.
+
+For example:
+
+If an administrator adds a new authority named XYZ Regulatory Authority, it must automatically become available throughout the source-management interface, filtering system and relevant dashboards.
+
+No frontend component should require modification just because a new category or authority has been added.
+
+Use database-driven configuration and reusable components.
+
+Application logic may exist in code, but business content and operational configuration must remain dynamic.
+
+# 4. MOST CRITICAL REQUIREMENT: DAILY DATABASE MANAGEMENT AND MIDNIGHT CLEANUP
+
+This requirement is extremely important.
+
+I want the application to collect fresh legal updates every day, display the latest information and prevent unnecessary storage accumulation.
+
+Implement a proper storage lifecycle management system.
+
+## A. Separate permanent and temporary data
+
+Design the architecture with two distinct data lifecycles.
+
+PERMANENT / RETAINED DATA:
+
+- Verified legal updates
+- Published research notes
+- Update metadata
+- Case numbers and citations
+- Legal provisions
+- Authority information
+- Original source URLs
+- Publication history
+- Essential audit records
+- Document hashes
+- Historical references
+
+TEMPORARY DATA:
+
+- Intermediate downloaded files
+- Temporary PDFs
+- OCR intermediate files
+- Unpublished processing artifacts
+- Temporary extracted content
+- Failed processing payloads
+- AI intermediate responses
+- Temporary generated files
+- Expired cache entries
+- Redundant temporary logs
+
+## B. Automatic midnight cleanup
+
+Implement a reliable scheduled cleanup process that executes every day at exactly:
+
+**12:00 AM Indian Standard Time (Asia/Kolkata).**
+
+Do not use server-local timezone assumptions. Explicitly configure and test Asia/Kolkata timezone handling.
+
+At midnight:
+
+1. Identify all temporary records whose retention period has expired.
+2. Delete expired temporary database records.
+3. Delete their associated temporary files from object storage.
+4. Remove expired cache entries.
+5. Clean up intermediate OCR and AI processing artifacts.
+6. Remove expired temporary job payloads and logs.
+7. Release unnecessary storage.
+8. Record a minimal cleanup execution summary.
+9. Generate a cleanup success/failure status for the admin dashboard.
+
+## C. IMPORTANT: NEVER DELETE PERMANENT LEGAL RECORDS
+
+Midnight cleanup must NEVER automatically delete:
+
+- Published legal updates
+- Verified research notes
+- Historical judgments
+- Permanent case references
+- Essential source metadata
+- Original source references
+- Permanent publication URLs
+
+Do not truncate the database every night.
+
+Do not drop tables or reset the database.
+
+The purpose is to eliminate temporary storage, not historical legal knowledge.
+
+## D. Configurable retention policies
+
+Create an admin-controlled retention management module.
+
+Allow configurable retention periods for:
+
+- Temporary downloaded documents
+- Unpublished documents
+- Intermediate extraction data
+- Temporary AI responses
+- Failed jobs
+- Application logs
+- Cached content
+
+Use sensible defaults and make retention periods configurable without changing code.
+
+Provide:
+- Current database usage
+- Temporary storage usage
+- Permanent storage usage
+- Object storage usage
+- Cleanup history
+- Last cleanup execution
+- Next scheduled cleanup
+- Cleanup failures
+- Estimated storage savings
+
+## E. Storage optimization
+
+Implement:
+
+- SHA-256 document hashing
+- Duplicate document detection
+- Deduplication before downloading/storing
+- Database indexing
+- Efficient queries
+- Pagination
+- Compression where appropriate
+- File size validation
+- Configurable upload limits
+- Automatic expiration of temporary files
+- Lifecycle policies for object storage
+- Removal of orphaned files
+
+Avoid storing the same PDF multiple times.
+
+Never claim that deleting temporary records guarantees zero storage charges. Account for database backups, WAL, object storage versions, provider retention policies and minimum storage billing.
+
+Create a storage budget monitoring mechanism and warn administrators when configurable usage thresholds are exceeded.
+
+The application must minimize recurring infrastructure expenses without compromising essential legal records.
+
+# 5. AUTOMATED LEGAL SOURCE COLLECTION ENGINE
+
+Build an extensible source collection engine.
+
+Initially configure the following authorities and sources as seed records in the database:
+
+REGULATORY AUTHORITIES:
+
+- MCA
+- CBDT
+- CBIC
+- IBBI
+- SEBI
+- RBI
+- NFRA
+- ICAI
+- ICSI
+- ICMAI
+- EPFO
+- ESIC
+- MeitY
+- e-Gazette of India
+
+COURTS AND TRIBUNALS:
+
+- Supreme Court of India
+- High Courts
+- NCLAT
+- NCLT
+- ITAT
+- CESTAT
+- TDSAT
+
+Important: These are initial database seed records, not hardcoded frontend data.
+
+Build an extensible connector architecture supporting:
+
+1. Official APIs
+2. Official RSS feeds
+3. Public website crawling
+4. Official PDF/document ingestion
+5. Administrator-assisted manual uploads
+
+Every source should have configurable:
+
+- Source name
+- Authority
+- Website URL
+- Source type
+- Fetch interval
+- Active/inactive status
+- Last successful fetch
+- Last attempted fetch
+- Next scheduled fetch
+- Connector configuration
+- Error status
+
+Respect official website terms, robots policies, access restrictions and rate limits.
+
+Do not bypass CAPTCHA, authentication restrictions or anti-bot protections.
+
+When a source is inaccessible, log the error and provide an administrator-assisted fallback.
+
+# 6. AUTOMATED DAILY COLLECTION WORKFLOW
+
+Implement a background collection pipeline.
+
+The workflow must be:
+
+STEP 1: Source discovery
+
+Automatically check active sources at their configured intervals.
+
+STEP 2: New document detection
+
+Identify newly published:
+- Notifications
+- Circulars
+- Amendments
+- Regulations
+- Orders
+- Judgments
+- Guidelines
+- Official announcements
+
+STEP 3: Duplicate detection
+
+Check:
+- Source document identifier
+- Notification number
+- Case number
+- Document hash
+- Publication date
+- Authority
+
+Prevent duplicate ingestion.
+
+STEP 4: Document ingestion
+
+Download accessible original PDFs or documents.
+
+Save the original source URL, publication date and document metadata.
+
+STEP 5: Text extraction
+
+Extract text using suitable PDF parsers.
+
+Use OCR only when necessary for scanned documents.
+
+STEP 6: Classification
+
+Automatically classify each document according to:
+- Legal category
+- Authority
+- Document type
+- Relevant legislation
+- Court or tribunal
+- Publication date
+
+STEP 7: AI legal research
+
+Pass the extracted document and its metadata to the AI research engine.
+
+STEP 8: Verification queue
+
+Place the generated research note into the administrator's review queue.
+
+STEP 9: Publication
+
+Only publish after an authorized administrator approves the research note.
+
+STEP 10: Daily bulletin
+
+Generate a dynamic daily bulletin containing all newly approved updates.
+
+The pipeline must be idempotent, retryable, observable and fault tolerant.
+
+One failed source must not stop other sources from being processed.
+
+# 7. AI-POWERED LEGAL RESEARCH ENGINE
+
+This is the core intellectual feature of the product.
+
+Every legal update must follow this exact research structure:
+
+MK PROFESSIONAL LEGAL BULLETIN
+
+UPDATE NO.: Automatically generated
+
+SUBJECT: Dynamically extracted subject
+
+AUTHORITY / COURT: Dynamically identified authority
+
+DATE: Original issue date or judgment date
+
+## 1. FACTS
+
+- Background of the matter.
+- Facts of the case or circumstances leading to the notification.
+- Relevant parties and material events.
+- What triggered the legal dispute or regulatory change?
+
+## 2. REFERENCE SECTIONS / LEGAL PROVISIONS
+
+- Relevant Act.
+- Applicable section and subsection.
+- Relevant Rules and Regulations.
+- Earlier circulars or notifications.
+- Case citations and previous judicial precedents.
+
+## 3. DECISION / LEGAL DEVELOPMENT
+
+- What did the court or authority decide?
+- What interpretation was given?
+- What amendment or clarification was issued?
+- What legal principle was established?
+- Does the decision modify or distinguish an earlier legal position?
+
+## 4. CONCLUSION & PROFESSIONAL IMPLICATION
+
+- What is the final legal position?
+- Who will be affected?
+- What should CA/CS/CMA/IP professionals do?
+- What compliance or procedural action is required?
+- What are the practical implications for businesses?
+
+## 5. ORIGINAL SOURCE & REFERENCE
+
+- Official notification or circular.
+- Original judgment.
+- Case number and citation.
+- Official government or court source URL.
+- Relevant source page references.
+
+## AI ACCURACY RULES
+
+This is legal research. Accuracy is more important than generating impressive-looking content.
+
+The AI must:
+
+1. Never invent legal provisions, case numbers, dates or citations.
+2. Never fabricate court observations or judicial holdings.
+3. Distinguish actual holdings, observations, operative directions and dissenting opinions.
+4. Clearly identify missing information.
+5. Link every important factual assertion to its source.
+6. Provide page or paragraph references wherever possible.
+7. Distinguish source-derived facts from AI interpretation.
+8. Identify whether a judgment is final, stayed, appealed or subsequently overruled only when verifiable.
+9. Flag conflicting or uncertain information.
+10. Never independently publish legal conclusions without human verification.
+
+Use structured JSON responses and validate them before saving to the database.
+
+Allow administrators to edit every generated section.
+
+Store AI provider, model, prompt version, generation timestamp and verification status.
+
+# 8. ADMIN DASHBOARD
+
+Create a premium enterprise-grade admin dashboard.
+
+Include:
+
+OVERVIEW:
+- Total published updates
+- Updates discovered today
+- Pending AI analysis
+- Pending verification
+- Published today
+- Active authorities
+- Failed collection jobs
+- Database storage usage
+
+SOURCE MANAGEMENT:
+- Add source
+- Edit source
+- Activate/deactivate source
+- Test connector
+- Run manual collection
+- View fetch history
+- View errors
+
+DOCUMENT MANAGEMENT:
+- View collected documents
+- Preview original PDF
+- View extracted text
+- View duplicate status
+- Retry failed processing
+- Delete eligible temporary artifacts
+
+AI RESEARCH MANAGEMENT:
+- View AI-generated research
+- Edit research
+- Regenerate selected sections
+- Compare source and generated text
+- Verify citations
+- Approve or reject
+
+PUBLICATION MANAGEMENT:
+- Publish updates
+- Schedule publication
+- Unpublish with audit trail
+- Edit published research with version history
+- Generate PDFs
+
+STORAGE MANAGEMENT:
+- View database and file usage
+- Configure retention policies
+- View cleanup history
+- Trigger authorized manual cleanup
+- View orphaned files
+- Configure storage alerts
+
+All statistics must be calculated from actual database data.
+
+# 9. PUBLIC-FACING WEBSITE
+
+Create a highly professional legal bulletin publication website.
+
+Design direction:
+
+- Premium editorial design
+- Modern professional typography
+- Navy, white and subtle gold accents
+- Clean layouts
+- Excellent readability
+- Responsive desktop, tablet and mobile interfaces
+- Minimal unnecessary animations
+- Professional legal publication aesthetic
+
+PUBLIC WEBSITE SECTIONS:
+
+1. Home
+2. Latest Legal Updates
+3. Daily Bulletin
+4. Direct Tax
+5. GST
+6. Corporate Law
+7. Insolvency & Bankruptcy
+8. SEBI & RBI
+9. Labour Laws
+10. Judicial Decisions
+11. Search
+12. About the Publication
+13. Contact
+
+Every category must be database-driven.
+
+Include:
+- Global search
+- Advanced filters
+- Date filters
+- Authority filters
+- Case number search
+- Notification number search
+- Pagination
+- Latest-first sorting
+- Individual research note pages
+- Original source links
+- Downloadable PDFs
+- Social sharing
+- SEO-friendly permanent URLs
+
+Every published update must have a stable, unique URL.
+
+Example:
+
+/bulletin/ibc/nclat-case-reference
+
+Do not use temporary URLs or frontend-generated static content.
+
+# 10. AUTOMATED DAILY BULLETIN
+
+Create an automated daily bulletin generation system.
+
+Every day:
+
+- Collect new source documents.
+- Process and classify documents.
+- Generate AI research drafts.
+- Place drafts into verification.
+- Identify approved updates.
+- Generate the day's bulletin.
+- Publish approved updates on the website.
+
+The daily bulletin should display:
+- Date
+- Number of updates
+- Category-wise grouping
+- Authority-wise grouping
+- Individual research notes
+- Original source references
+
+Never generate a fake daily bulletin when no new updates exist.
+
+Display an honest message such as "No verified new updates published today."
+
+Do not treat the absence of a collected document as proof that no legal update was issued.
+
+# 11. DATABASE ARCHITECTURE
+
+Design a normalized PostgreSQL schema.
+
+At minimum, implement:
+
+- users
+- roles
+- permissions
+- authorities
+- legal_categories
+- source_registry
+- source_documents
+- legal_updates
+- research_notes
+- legal_references
+- document_files
+- collection_jobs
+- processing_jobs
+- review_logs
+- publication_logs
+- ai_prompts
+- ai_generation_logs
+- retention_policies
+- cleanup_logs
+- storage_usage_logs
+- system_settings
+
+Define proper relationships, constraints, indexes, unique keys and timestamps.
+
+Use database transactions for critical operations.
+
+Use migrations instead of manually changing production database structures.
+
+Implement database backups and recovery procedures.
+
+Keep frequently queried data efficiently indexed.
+
+Avoid unnecessary database columns and redundant copies of data.
+
+# 12. SECURITY AND ACCESS CONTROL
+
+Implement:
+
+- Secure authentication
+- Role-based authorization
+- Server-side permission checks
+- Input validation
+- API rate limiting
+- Secure file uploads
+- MIME-type validation
+- File size restrictions
+- Secure environment configuration
+- Protection against SQL injection
+- XSS protection
+- CSRF protection where applicable
+- Secure HTTP headers
+- Audit trails
+- Restricted admin APIs
+- Private unpublished document storage
+
+Never expose sensitive source files or unpublished AI research to public users.
+
+# 13. API ARCHITECTURE
+
+Create modular REST APIs for:
+
+Authentication
+Authorities
+Categories
+Source Registry
+Source Collection
+Document Ingestion
+Document Processing
+AI Research
+Research Verification
+Legal Updates
+Publications
+Daily Bulletins
+PDF Generation
+Storage Management
+Retention Policies
+Cleanup Jobs
+Analytics
+System Settings
+
+Implement consistent response formats, validation, error handling, pagination and API documentation.
+
+Do not create unnecessary endpoints or duplicate business logic.
+
+# 14. RELIABILITY AND OBSERVABILITY
+
+Implement:
+
+- Structured application logs
+- Background job monitoring
+- Automatic retries with exponential backoff
+- Failed-job management
+- Source health monitoring
+- API health checks
+- Database connection monitoring
+- Cleanup job monitoring
+- Error reporting
+- Admin notifications for important failures
+
+A failure in the AI provider, one government portal or one document must not bring down the entire application.
+
+Never mark a job successful if it failed partially.
+
+# 15. PERFORMANCE AND COST OPTIMIZATION
+
+The application must be designed for efficient infrastructure usage.
+
+Priorities:
+
+1. Avoid unnecessary database writes.
+2. Avoid duplicate documents.
+3. Use background processing.
+4. Avoid repeatedly downloading unchanged PDFs.
+5. Use pagination instead of loading entire datasets.
+6. Cache suitable public queries.
+7. Expire temporary cache data.
+8. Avoid unnecessary AI API calls.
+9. Process only newly discovered documents.
+10. Use database indexing.
+11. Monitor storage and bandwidth.
+12. Avoid always-on expensive infrastructure unless justified.
+
+Implement configurable limits for:
+- Daily document ingestion
+- Maximum document size
+- Concurrent processing
+- AI token usage
+- Daily AI expenditure
+- Storage usage
+
+Provide cost visibility in the admin dashboard.
+
+Do not sacrifice the integrity of permanent legal records to save storage.
+
+# 16. DEVELOPMENT METHODOLOGY
+
+Follow these instructions strictly.
+
+PHASE 1: INSPECT
+
+First inspect the complete existing repository, if provided.
+
+Understand:
+- Existing frontend
+- Backend
+- Database
+- Authentication
+- Existing components
+- Existing APIs
+- Environment configuration
+- Deployment configuration
+
+Do not blindly replace existing code.
+
+PHASE 2: ARCHITECTURE
+
+Create:
+- System architecture
+- Database ER diagram
+- Folder structure
+- API architecture
+- Background processing architecture
+- Storage lifecycle design
+
+PHASE 3: DATABASE
+
+Implement PostgreSQL schema, migrations, relationships and seed data.
+
+PHASE 4: BACKEND
+
+Build all backend services, connectors, scheduled jobs, document processing and AI integration.
+
+PHASE 5: FRONTEND
+
+Build the complete admin dashboard and public bulletin website.
+
+PHASE 6: INTEGRATION
+
+Connect all frontend functionality to actual backend APIs and database records.
+
+PHASE 7: TESTING
+
+Test:
+- Authentication
+- Role permissions
+- Database operations
+- Source collection
+- PDF ingestion
+- Duplicate detection
+- AI research
+- Citation validation
+- Approval workflow
+- Publishing
+- PDF generation
+- Midnight cleanup
+- Storage lifecycle
+- Mobile responsiveness
+- Error handling
+
+PHASE 8: DEPLOYMENT
+
+Prepare production-ready deployment configuration, environment variable documentation, migrations, backups and monitoring.
+
+# 17. STRICT DEVELOPMENT RULES
+
+- No TypeScript.
+- No fake APIs.
+- No mock data in production.
+- No hardcoded business data.
+- No placeholder pages.
+- No dead buttons.
+- No static dashboard statistics.
+- No fake legal citations.
+- No automatic publishing of unverified legal research.
+- No insecure credential storage.
+- No unnecessary dependencies.
+- No destructive database resets.
+- No midnight deletion of permanent legal records.
+- No frontend-only implementations of backend functionality.
+
+Every visible action must work.
+
+Every form must validate and save actual data.
+
+Every filter must query the real database.
+
+Every dashboard metric must reflect actual records.
+
+Every background task must have execution status and error handling.
+
+# 18. FINAL ACCEPTANCE CRITERIA
+
+The project will only be considered complete when:
+
+1. An administrator can log in securely.
+2. An administrator can add a new legal authority without changing frontend code.
+3. The system can monitor configured official sources.
+4. Newly discovered documents can be ingested automatically.
+5. Duplicate documents are detected.
+6. PDF documents can be extracted and analysed.
+7. AI can generate research in the required five-part format.
+8. Source references are preserved.
+9. An administrator can edit, verify, approve and reject research.
+10. Approved updates appear on the public website.
+11. Individual updates have permanent URLs.
+12. Daily bulletins are generated dynamically.
+13. Midnight cleanup runs in Asia/Kolkata timezone.
+14. Expired temporary records and files are removed.
+15. Permanent legal records remain intact.
+16. Storage usage and cleanup activity are visible.
+17. Failed jobs can be retried.
+18. The application works on mobile and desktop.
+19. No production functionality depends on dummy data.
+20. The complete system can be deployed using documented instructions.
+
+# 19. HOW YOU MUST WORK
+
+Do not simply give me a development plan or a beautiful frontend mockup.
+
+I want you to actually BUILD the complete working application.
+
+Start by inspecting the repository.
+
+Then explain the proposed architecture briefly, identify any existing infrastructure worth retaining, and begin implementation.
+
+Work module by module, maintaining consistency across the entire codebase.
+
+Do not stop after generating the frontend.
+
+Do not ask me to manually implement core functionality that you can implement yourself.
+
+If an external API key or service connection is required, implement the integration properly, provide the exact environment variable name and explain what access is needed. Never substitute fake functionality.
+
+If a government source has no accessible integration method, implement the supported fallback and clearly disclose the limitation.
+
+Maintain a production-ready codebase with proper documentation, testing and error handling.
+
+**FINAL EXPECTATION:**
+
+Deliver a complete, scalable, secure, dynamic and cost-efficient AI-powered Indian Legal Intelligence & Regulatory Monitoring Platform for MK Professional Legal Bulletin.
+
+The platform must automatically discover daily legal developments, generate structured AI-assisted legal research, preserve verified legal knowledge, publish approved updates and clean up unnecessary temporary storage every midnight.
+
+Build a real product, not a prototype.
+
+**NOW BEGIN.**
