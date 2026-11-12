@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { supabase } from './db.ts';
+import { supabase } from './db';
 
 export interface StorageMetrics {
   databaseSizeBytes: number;

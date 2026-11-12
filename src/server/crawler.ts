@@ -14,7 +14,7 @@
  * Never fabricates or synthesizes fake circular references or synthetic publication dates.
  */
 
-import { chromium, type Browser, type Page } from 'playwright';
+import type { Browser, Page } from 'playwright';
 import { PDFParse } from 'pdf-parse';
 
 export interface CrawledDocument {
@@ -31,7 +31,11 @@ export interface CrawledDocument {
 let _browser: Browser | null = null;
 
 async function getBrowser(): Promise<Browser> {
+  if (process.env.VERCEL) {
+    throw new Error('Headless Chromium crawls run automatically via GitHub Actions on Vercel deployments.');
+  }
   if (_browser && _browser.isConnected()) return _browser;
+  const { chromium } = await import('playwright');
   _browser = await chromium.launch({
     headless: true,
     args: [

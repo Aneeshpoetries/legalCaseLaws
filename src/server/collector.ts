@@ -1,8 +1,8 @@
 import path from 'node:path';
-import { supabase } from './db.ts';
-import { computeSha256 } from './midnightCleanup.ts';
-import { crawlSource } from './crawler.ts';
-import { generateLegalResearch } from './aiResearch.ts';
+import { supabase } from './db';
+import { computeSha256 } from './midnightCleanup';
+import { crawlSource } from './crawler';
+import { generateLegalResearch } from './aiResearch';
 
 export interface IngestedDocumentResult {
   docId: number;

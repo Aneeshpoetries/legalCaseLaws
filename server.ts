@@ -4,22 +4,22 @@ import path from 'node:path';
 import fs from 'node:fs';
 import dotenv from 'dotenv';
 import multer from 'multer';
-import { supabase } from './src/server/db.ts';
+import { supabase } from './src/server/db';
 import {
   getStorageOverview,
   runMidnightCleanup,
   getAsiaKolkataTime,
   formatKolkataIso,
   computeSha256,
-} from './src/server/midnightCleanup.ts';
+} from './src/server/midnightCleanup';
 import {
   runSourceCollection,
   ingestManualDocument,
-} from './src/server/collector.ts';
+} from './src/server/collector';
 import {
   generateLegalResearch,
   regenerateResearchSection,
-} from './src/server/aiResearch.ts';
+} from './src/server/aiResearch';
 
 dotenv.config();
 
@@ -35,10 +35,16 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Ensure upload directory exists
-const UPLOAD_DIR = path.resolve(process.cwd(), 'public/uploads');
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// Ensure upload directory exists (use writable /tmp on Vercel Serverless)
+const UPLOAD_DIR = process.env.VERCEL
+  ? path.resolve('/tmp', 'uploads')
+  : path.resolve(process.cwd(), 'public/uploads');
+try {
+  if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  }
+} catch (err: any) {
+  console.warn('[SERVER] Could not create upload dir:', err?.message);
 }
 
 // Multer config for file uploads
@@ -1006,7 +1012,9 @@ function checkScheduledMidnightCleanup() {
   }
 }
 
-setInterval(checkScheduledMidnightCleanup, 60 * 1000);
+if (!process.env.VERCEL) {
+  setInterval(checkScheduledMidnightCleanup, 60 * 1000);
+}
 
 // ==========================================
 
@@ -1047,8 +1055,8 @@ async function checkScheduledSourceCrawls() {
   }
 }
 
-if (process.env.DISABLE_IN_APP_CRAWLER === 'true') {
-  console.log('[DAEMON] In-app crawler disabled (DISABLE_IN_APP_CRAWLER=true); relying on external GitHub Actions cron.');
+if (process.env.VERCEL || process.env.DISABLE_IN_APP_CRAWLER === 'true') {
+  console.log('[DAEMON] In-app crawler disabled in cloud/serverless mode; relying on external GitHub Actions cron.');
 } else {
   setTimeout(checkScheduledSourceCrawls, 5 * 1000);
   setInterval(checkScheduledSourceCrawls, 5 * 60 * 1000);
@@ -1084,4 +1092,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
