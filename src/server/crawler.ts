@@ -15,7 +15,11 @@
  */
 
 import type { Browser, Page } from 'playwright';
-import { PDFParse } from 'pdf-parse';
+
+async function createPdfParser(data: Uint8Array) {
+  const { PDFParse } = await import('pdf-parse');
+  return new PDFParse(data);
+}
 
 export interface CrawledDocument {
   identifier: string;
@@ -160,7 +164,7 @@ async function fetchPDFText(url: string): Promise<string> {
 
     const arrayBuffer = await res.arrayBuffer();
     const uint8 = new Uint8Array(arrayBuffer);
-    const parser = new PDFParse(uint8);
+    const parser = await createPdfParser(uint8);
     const result = await parser.getText();
     await parser.destroy();
 
@@ -179,7 +183,7 @@ async function fetchPDFText(url: string): Promise<string> {
  */
 async function parsePdfBuffer(buf: Uint8Array): Promise<string> {
   try {
-    const parser = new PDFParse(buf);
+    const parser = await createPdfParser(buf);
     const result = await parser.getText();
     await parser.destroy();
     return (result?.text || '').replace(/\u0000/g, '').trim().slice(0, 12000);

@@ -1,8 +1,8 @@
 import path from 'node:path';
-import { supabase } from './db';
-import { computeSha256 } from './midnightCleanup';
-import { crawlSource } from './crawler';
-import { generateLegalResearch } from './aiResearch';
+import { supabase } from './db.js';
+import { computeSha256 } from './midnightCleanup.js';
+import { crawlSource } from './crawler.js';
+import { generateLegalResearch } from './aiResearch.js';
 
 export interface IngestedDocumentResult {
   docId: number;

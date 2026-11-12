@@ -4,22 +4,22 @@ import path from 'node:path';
 import fs from 'node:fs';
 import dotenv from 'dotenv';
 import multer from 'multer';
-import { supabase } from './src/server/db';
+import { supabase } from './src/server/db.js';
 import {
   getStorageOverview,
   runMidnightCleanup,
   getAsiaKolkataTime,
   formatKolkataIso,
   computeSha256,
-} from './src/server/midnightCleanup';
+} from './src/server/midnightCleanup.js';
 import {
   runSourceCollection,
   ingestManualDocument,
-} from './src/server/collector';
+} from './src/server/collector.js';
 import {
   generateLegalResearch,
   regenerateResearchSection,
-} from './src/server/aiResearch';
+} from './src/server/aiResearch.js';
 
 dotenv.config();
 
