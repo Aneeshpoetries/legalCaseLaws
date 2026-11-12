@@ -1047,8 +1047,12 @@ async function checkScheduledSourceCrawls() {
   }
 }
 
-setTimeout(checkScheduledSourceCrawls, 5 * 1000);
-setInterval(checkScheduledSourceCrawls, 5 * 60 * 1000);
+if (process.env.DISABLE_IN_APP_CRAWLER === 'true') {
+  console.log('[DAEMON] In-app crawler disabled (DISABLE_IN_APP_CRAWLER=true); relying on external GitHub Actions cron.');
+} else {
+  setTimeout(checkScheduledSourceCrawls, 5 * 1000);
+  setInterval(checkScheduledSourceCrawls, 5 * 60 * 1000);
+}
 
 
 // ==========================================
