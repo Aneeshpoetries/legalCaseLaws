@@ -151,7 +151,7 @@ export function parseIndianDate(raw: string): string {
 async function fetchPDFText(url: string): Promise<string> {
   try {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 25000);
+    const timer = setTimeout(() => ctrl.abort(), 8000);
     const res = await fetch(url, {
       headers: {
         'User-Agent':
@@ -208,10 +208,12 @@ async function crawlCBIC(): Promise<CrawledDocument[]> {
       const gst = await fetch('/api/cbic-notification-msts/fetchUpdatesByTaxId/1000001').then(r => r.json()).catch(() => []);
       const customs = await fetch('/api/cbic-notification-msts/fetchUpdatesByTaxId/1000002').then(r => r.json()).catch(() => []);
       const excise = await fetch('/api/cbic-notification-msts/fetchUpdatesByTaxId/1000003').then(r => r.json()).catch(() => []);
+      const serviceTax = await fetch('/api/cbic-notification-msts/fetchUpdatesByTaxId/1000004').then(r => r.json()).catch(() => []);
       return {
-        gst: Array.isArray(gst) ? gst.slice(0, 15) : [],
-        customs: Array.isArray(customs) ? customs.slice(0, 10) : [],
-        excise: Array.isArray(excise) ? excise.slice(0, 8) : [],
+        gst: Array.isArray(gst) ? gst.slice(0, 20) : [],
+        customs: Array.isArray(customs) ? customs.slice(0, 20) : [],
+        excise: Array.isArray(excise) ? excise.slice(0, 15) : [],
+        serviceTax: Array.isArray(serviceTax) ? serviceTax.slice(0, 15) : [],
       };
     });
 
@@ -219,9 +221,10 @@ async function crawlCBIC(): Promise<CrawledDocument[]> {
       ...rawData.gst.map((x: any) => ({ ...x, stream: 'GST' })),
       ...rawData.customs.map((x: any) => ({ ...x, stream: 'Customs' })),
       ...rawData.excise.map((x: any) => ({ ...x, stream: 'Central Excise' })),
+      ...rawData.serviceTax.map((x: any) => ({ ...x, stream: 'Service Tax' })),
     ];
 
-    console.log(`[Crawler] Found ${combined.length} recent CBIC GST/Customs/Excise updates via official API`);
+    console.log(`[Crawler] Found ${combined.length} recent CBIC GST/Customs/Excise/Service Tax updates via official API`);
 
     const nowMs = Date.now();
     const maxAgeMs = 90 * 24 * 60 * 60 * 1000; // Extended to 90 days
@@ -279,10 +282,19 @@ async function crawlCBIC(): Promise<CrawledDocument[]> {
 
 /**
  * IBBI — Insolvency and Bankruptcy Board of India
- * Crawls ALL 3 official streams:
+ * Comprehensively crawls ALL official statutory streams across the entire website:
  *   1. Orders of Disciplinary Committee & FAA (https://ibbi.gov.in/orders/ibbi)
- *   2. Statutory Circulars (https://ibbi.gov.in/legal-framework/circulars)
- *   3. Gazetted Notifications (https://ibbi.gov.in/legal-framework/notifications)
+ *   2. NCLT Insolvency Orders (https://ibbi.gov.in/orders/nclt)
+ *   3. NCLAT Appellate Insolvency Orders (https://ibbi.gov.in/orders/nclat)
+ *   4. High Courts IBC Decisions (https://ibbi.gov.in/orders/high-courts)
+ *   5. Supreme Court IBC Judgments (https://ibbi.gov.in/orders/supreme-court)
+ *   6. IPA / RVO Disciplinary Orders (https://ibbi.gov.in/orders/ipa-rvo)
+ *   7. Other Courts Insolvency Orders (https://ibbi.gov.in/orders/other-courts)
+ *   8. Statutory Circulars (https://ibbi.gov.in/legal-framework/circulars)
+ *   9. Gazetted Notifications (https://ibbi.gov.in/legal-framework/notifications)
+ *  10. Insolvency Guidelines (https://ibbi.gov.in/legal-framework/guidelines)
+ *  11. Regulations & Amendments (https://ibbi.gov.in/legal-framework/updated)
+ *  12. Regulatory Press Releases (https://ibbi.gov.in/media/press-releases)
  */
 async function crawlIBBI(): Promise<CrawledDocument[]> {
   const docs: CrawledDocument[] = [];
@@ -290,8 +302,17 @@ async function crawlIBBI(): Promise<CrawledDocument[]> {
 
   const streams = [
     { url: 'https://ibbi.gov.in/orders/ibbi', defaultType: 'Order', maxItems: 12 },
-    { url: 'https://ibbi.gov.in/legal-framework/circulars', defaultType: 'Circular', maxItems: 10 },
-    { url: 'https://ibbi.gov.in/legal-framework/notifications', defaultType: 'Notification', maxItems: 6 },
+    { url: 'https://ibbi.gov.in/orders/nclt', defaultType: 'NCLT Order', maxItems: 10 },
+    { url: 'https://ibbi.gov.in/orders/nclat', defaultType: 'NCLAT Order', maxItems: 10 },
+    { url: 'https://ibbi.gov.in/orders/high-courts', defaultType: 'High Court Order', maxItems: 8 },
+    { url: 'https://ibbi.gov.in/orders/supreme-court', defaultType: 'Supreme Court Order', maxItems: 8 },
+    { url: 'https://ibbi.gov.in/orders/ipa-rvo', defaultType: 'IPA/RVO Order', maxItems: 6 },
+    { url: 'https://ibbi.gov.in/orders/other-courts', defaultType: 'Court Order', maxItems: 6 },
+    { url: 'https://ibbi.gov.in/legal-framework/circulars', defaultType: 'Circular', maxItems: 12 },
+    { url: 'https://ibbi.gov.in/legal-framework/notifications', defaultType: 'Notification', maxItems: 8 },
+    { url: 'https://ibbi.gov.in/legal-framework/guidelines', defaultType: 'Guideline', maxItems: 8 },
+    { url: 'https://ibbi.gov.in/legal-framework/updated', defaultType: 'Regulation', maxItems: 8 },
+    { url: 'https://ibbi.gov.in/media/press-releases', defaultType: 'Press Release', maxItems: 8 },
   ];
 
   const nowMs = Date.now();
@@ -429,9 +450,9 @@ async function crawlRBI(): Promise<CrawledDocument[]> {
     console.log(`[Crawler] Found ${notifItems.length} statutory notifications on RBI NotificationUser.aspx`);
 
     const nowMs = Date.now();
-    const maxAgeMs = 45 * 24 * 60 * 60 * 1000;
+    const maxAgeMs = 90 * 24 * 60 * 60 * 1000;
 
-    for (const item of notifItems.slice(0, 10)) {
+    for (const item of notifItems.slice(0, 15)) {
       const preDate = parseIndianDate(item.sectionDate);
       if (preDate) {
         const t = new Date(preDate).getTime();
@@ -541,6 +562,60 @@ async function crawlRBI(): Promise<CrawledDocument[]> {
   } finally {
     await page.close();
   }
+
+  // 3. RBI Index to All Department Circulars & Master Directions
+  try {
+    console.log('[Crawler] Fetching live RBI Circulars Index (BS_CircularIndexDisplay.aspx)...');
+    const cRes = await fetch('https://www.rbi.org.in/Scripts/BS_CircularIndexDisplay.aspx', {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0',
+      },
+    });
+    if (cRes.ok) {
+      const cHtml = await cRes.text();
+      const rows = [...cHtml.matchAll(/<tr>([\s\S]*?)<\/tr>/g)];
+      let cCount = 0;
+      for (const m of rows.slice(1)) {
+        if (cCount >= 10) break;
+        const r = m[1];
+        const tds = [...r.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(t =>
+          t[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+        );
+        if (tds.length < 4) continue;
+
+        const circNo = tds[0];
+        const dateStr = tds[1];
+        const dept = tds[2];
+        const title = tds[3];
+
+        const linkMatch = r.match(/href=["']?([^"'>\s]+Id=\d+)["']?/i);
+        const link = linkMatch
+          ? `https://www.rbi.org.in/Scripts/${linkMatch[1].replace(/^\//, '')}`
+          : 'https://www.rbi.org.in/Scripts/BS_CircularIndexDisplay.aspx';
+
+        const pubDate = parseIndianDate(dateStr) || extractDateFromText(dateStr);
+        if (!pubDate || seenUrls.has(link) || title.length < 15) continue;
+        seenUrls.add(link);
+
+        const refMatch = circNo.match(/RBI\/\d{4}-\d{2,4}\/\d+/i) || circNo.match(/RBI\/[A-Z0-9-]+\/\d+/i);
+        const identifier = refMatch ? refMatch[0].toUpperCase() : `RBI/CIR/${pubDate.replace(/-/g, '')}/${cCount + 1}`;
+
+        docs.push({
+          identifier,
+          title: `RBI ${dept}: ${title}`.slice(0, 200),
+          docType: 'Circular',
+          publicationDate: pubDate,
+          url: link,
+          content: `${title}\nCircular Reference: ${circNo}\nDepartment: ${dept}\nDate: ${pubDate}\nOfficial Link: ${link}`,
+        });
+        cCount++;
+      }
+    }
+  } catch (err: any) {
+    console.warn('[Crawler] Note on RBI CircularIndex crawl:', err.message);
+  }
+
   return docs;
 }
 
@@ -553,26 +628,43 @@ async function crawlCBDT(): Promise<CrawledDocument[]> {
   const docs: CrawledDocument[] = [];
   try {
     console.log('[Crawler] Fetching live CBDT portal: https://www.incometax.gov.in/iec/foportal/latest-news');
-    await page.goto('https://www.incometax.gov.in/iec/foportal/latest-news', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(2000);
+    const allItems: { text: string; pdfUrl: string }[] = [];
+    for (const pageNum of [0, 1]) {
+      try {
+        console.log(`[Crawler] Fetching live CBDT portal page ${pageNum}...`);
+        await page.goto(`https://www.incometax.gov.in/iec/foportal/latest-news?page=${pageNum}`, {
+          waitUntil: 'domcontentloaded',
+          timeout: 25000,
+        });
+        await page.waitForTimeout(1500);
 
-    const items = await page.evaluate(() => {
-      const results: { text: string; pdfUrl: string }[] = [];
-      document.querySelectorAll('.views-row, article').forEach((el) => {
-        const text = ((el as HTMLElement).innerText || el.textContent || '').trim();
-        const a = el.querySelector('a[href*=".pdf"]') as HTMLAnchorElement | null;
-        if (text.length > 20 && a && a.href) {
-          if (!results.some(r => r.pdfUrl === a.href)) {
-            results.push({ text, pdfUrl: a.href });
+        const pageItems = await page.evaluate(() => {
+          const results: { text: string; pdfUrl: string }[] = [];
+          document.querySelectorAll('.views-row, article').forEach((el) => {
+            const text = ((el as HTMLElement).innerText || el.textContent || '').trim();
+            const a = el.querySelector('a[href*=".pdf"]') as HTMLAnchorElement | null;
+            if (text.length > 20 && a && a.href) {
+              if (!results.some((r) => r.pdfUrl === a.href)) {
+                results.push({ text, pdfUrl: a.href });
+              }
+            }
+          });
+          return results;
+        });
+
+        for (const it of pageItems) {
+          if (!allItems.some(r => r.pdfUrl === it.pdfUrl)) {
+            allItems.push(it);
           }
         }
-      });
-      return results;
-    });
+      } catch (err: any) {
+        console.warn(`[Crawler] CBDT page ${pageNum} fetch warning:`, err.message);
+      }
+    }
 
-    console.log(`[Crawler] Found ${items.length} real CBDT notifications on live portal`);
+    console.log(`[Crawler] Found ${allItems.length} real CBDT notifications across pages`);
 
-    for (const item of items.slice(0, 20)) {
+    for (const item of allItems.slice(0, 25)) {
       const cleanUrl = item.pdfUrl.replace(/#.*$/, '');
       console.log(`[Crawler] Downloading real CBDT PDF: ${cleanUrl}`);
       let pdfContent = await fetchPDFText(cleanUrl);
@@ -754,8 +846,30 @@ async function crawlSEBI(): Promise<CrawledDocument[]> {
     }
   }
 
+  // Also include Securities Appellate Tribunal (SAT) orders for SEBI
+  try {
+    const satDocs = await fetchIndianKanoonRss(
+      ['/feeds/latest/sebisat/'],
+      /\b(sebi|adjudicating|penalty|insider trading|takeover|lodr|appeal)\b/i,
+      EXCLUDE_NOISE_RE,
+      'SAT Order',
+      'SEBI / SAT',
+      8
+    );
+    for (const d of satDocs) {
+      if (!docs.some(x => x.identifier === d.identifier)) {
+        docs.push(d);
+      }
+    }
+  } catch (err: any) {
+    console.warn('[Crawler] SAT feed note:', err.message);
+  }
+
   return docs;
 }
+
+const EXCLUDE_NOISE_RE =
+  /\b(bail|anticipatory|murder|302\s+ipc|376\s+ipc|ndps|pocso|matrimonial|divorce|dowry|custody\s+of\s+child|university\s+tribunal|school\s+tribunal|sinhgad|technical\s+education|teacher|constable|police\s+recruitment|compassionate\s+appointment|motor\s+accident|cheque\s+dishonour|138\s+ni\s+act)\b/i;
 
 /**
  * Fetch and filter official public Indian Kanoon RSS feeds (100% Free Forever, Zero Captcha)
@@ -856,9 +970,6 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
   const upper = code.toUpperCase();
   console.log(`[Crawler] Fetching live judicial RSS/open portals for: ${upper}...`);
 
-  const EXCLUDE_NOISE_RE =
-    /\b(bail|anticipatory|murder|302\s+ipc|376\s+ipc|ndps|pocso|matrimonial|divorce|dowry|custody\s+of\s+child|university\s+tribunal|school\s+tribunal|sinhgad|technical\s+education|teacher|constable|police\s+recruitment|compassionate\s+appointment|motor\s+accident|cheque\s+dishonour|138\s+ni\s+act)\b/i;
-
   if (upper === 'ITAT') {
     const ITAT_RE =
       /\b(acit|dcit|pcit|pr\.?\s*cit|ito\b|income[\s-]tax|ita\s+no|c\.o\s+no|assessing\s+officer|transfer\s+pricing|a\.y\.|assessment\s+year|section\s+68|section\s+148|section\s+143|section\s+263)\b/i;
@@ -868,7 +979,7 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
       new RegExp(`${EXCLUDE_NOISE_RE.source}|cestat|nclat|registrar\s+of\s+companies`, 'i'),
       'Tribunal Order',
       'ITAT',
-      15
+      20
     );
 
     // Also inspect ITAT Special Bench direct PDFs (Zero Captcha)
@@ -889,7 +1000,7 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
             });
           }
         });
-        return list.slice(0, 4);
+        return list.slice(0, 6);
       });
       await page.close();
 
@@ -929,12 +1040,21 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
         '/feeds/latest/jaipur/',
         '/feeds/latest/kerala/',
         '/feeds/latest/telangana/',
+        '/feeds/latest/patna/',
+        '/feeds/latest/madhyapradesh/',
+        '/feeds/latest/andhra/',
+        '/feeds/latest/gauhati/',
+        '/feeds/latest/chhattisgarh/',
+        '/feeds/latest/orissa/',
+        '/feeds/latest/jharkhand/',
+        '/feeds/latest/himachal_pradesh/',
+        '/feeds/latest/uttarakhand/',
       ],
       HC_RE,
       EXCLUDE_NOISE_RE,
       'High Court Judgment',
       'High Court',
-      15
+      25
     );
   }
 
@@ -947,7 +1067,7 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
       EXCLUDE_NOISE_RE,
       'Judgment',
       'Supreme Court',
-      10
+      15
     );
   }
 
@@ -960,7 +1080,7 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
       EXCLUDE_NOISE_RE,
       'Appellate Order',
       'CESTAT',
-      10
+      15
     );
   }
 
@@ -973,7 +1093,7 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
       EXCLUDE_NOISE_RE,
       'Appellate Order',
       'NCLAT / Corporate Tribunal',
-      10
+      15
     );
   }
 
