@@ -208,8 +208,8 @@ async function crawlCBIC(): Promise<CrawledDocument[]> {
       const gst = await fetch('/api/cbic-notification-msts/fetchUpdatesByTaxId/1000001').then(r => r.json()).catch(() => []);
       const customs = await fetch('/api/cbic-notification-msts/fetchUpdatesByTaxId/1000002').then(r => r.json()).catch(() => []);
       return {
-        gst: Array.isArray(gst) ? gst.slice(0, 8) : [],
-        customs: Array.isArray(customs) ? customs.slice(0, 6) : [],
+        gst: Array.isArray(gst) ? gst.slice(0, 15) : [],
+        customs: Array.isArray(customs) ? customs.slice(0, 10) : [],
       };
     });
 
@@ -221,7 +221,7 @@ async function crawlCBIC(): Promise<CrawledDocument[]> {
     console.log(`[Crawler] Found ${combined.length} recent CBIC GST/Customs updates via official API`);
 
     const nowMs = Date.now();
-    const maxAgeMs = 45 * 24 * 60 * 60 * 1000;
+    const maxAgeMs = 90 * 24 * 60 * 60 * 1000; // Extended to 90 days
 
     for (const item of combined) {
       const pubDate = parseIndianDate(item.updatedDate || '');
@@ -283,20 +283,36 @@ async function crawlIBBI(): Promise<CrawledDocument[]> {
   const docs: CrawledDocument[] = [];
   try {
     console.log('[Crawler] Fetching live IBBI portal: https://ibbi.gov.in/en/legal-framework/circulars');
-    await page.goto('https://ibbi.gov.in/en/legal-framework/circulars', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(2000);
+    // Use networkidle so JS-rendered table loads fully
+    await page.goto('https://ibbi.gov.in/en/legal-framework/circulars', { waitUntil: 'networkidle', timeout: 45000 });
+    await page.waitForTimeout(3000);
+
+    // Also try waiting for first table row to appear
+    await page.waitForSelector('table tbody tr', { timeout: 10000 }).catch(() => {});
 
     const items = await page.evaluate(() => {
       const results: { dateText: string; title: string; href: string }[] = [];
-      document.querySelectorAll('table tbody tr').forEach((tr) => {
-        const tds = tr.querySelectorAll('td');
-        const a = tr.querySelector('a') as HTMLAnchorElement | null;
-        if (tds.length >= 3 && a && a.href) {
-          const dateText = (tds[1]?.textContent || '').trim().replace(/\s+/g, ' ');
-          const rawTitle = (tds[2]?.textContent || a.textContent || '').trim().replace(/\s+/g, ' ');
-          if (rawTitle.length > 15 && !results.some(r => r.href === a.href)) {
-            results.push({ dateText, title: rawTitle.slice(0, 200), href: a.href });
+      // Try multiple selectors - IBBI uses both table rows and list items
+      document.querySelectorAll('table tbody tr, .circular-list li, .views-row').forEach((el) => {
+        const tds = el.querySelectorAll('td');
+        const a = el.querySelector('a') as HTMLAnchorElement | null;
+        if (!a || !a.href) return;
+        let dateText = '';
+        let rawTitle = '';
+        if (tds.length >= 2) {
+          // Table row: find which column has date vs title
+          for (let i = 0; i < tds.length; i++) {
+            const t = (tds[i]?.textContent || '').trim();
+            if (/\d{1,2}[\s-]\w{3}[\s-]\d{4}|\d{4}-\d{2}-\d{2}/.test(t)) dateText = t;
           }
+          rawTitle = (tds[tds.length - 1]?.textContent || a.textContent || '').trim().replace(/\s+/g, ' ');
+        } else {
+          rawTitle = (a.textContent || el.textContent || '').trim().replace(/\s+/g, ' ');
+          const timeEl = el.querySelector('time');
+          dateText = timeEl?.getAttribute('datetime') || timeEl?.textContent || '';
+        }
+        if (rawTitle.length > 15 && !results.some(r => r.href === a.href)) {
+          results.push({ dateText, title: rawTitle.slice(0, 200), href: a.href });
         }
       });
       return results;
@@ -305,9 +321,9 @@ async function crawlIBBI(): Promise<CrawledDocument[]> {
     console.log(`[Crawler] Found ${items.length} circulars on IBBI`);
 
     const nowMs = Date.now();
-    const maxAgeMs = 45 * 24 * 60 * 60 * 1000;
+    const maxAgeMs = 90 * 24 * 60 * 60 * 1000; // Extended to 90 days to catch more items
 
-    for (const item of items.slice(0, 12)) {
+    for (const item of items.slice(0, 20)) { // Increased from 12 to 20
       const preDate = parseIndianDate(item.dateText) || extractDateFromText(item.title);
       if (preDate) {
         const t = new Date(preDate).getTime();
@@ -527,7 +543,7 @@ async function crawlCBDT(): Promise<CrawledDocument[]> {
 
     console.log(`[Crawler] Found ${items.length} real CBDT notifications on live portal`);
 
-    for (const item of items.slice(0, 12)) {
+    for (const item of items.slice(0, 20)) {
       const cleanUrl = item.pdfUrl.replace(/#.*$/, '');
       console.log(`[Crawler] Downloading real CBDT PDF: ${cleanUrl}`);
       let pdfContent = await fetchPDFText(cleanUrl);
@@ -617,7 +633,7 @@ async function crawlSEBI(): Promise<CrawledDocument[]> {
 
     console.log(`[Crawler] Found ${items.length} real circulars in SEBI table`);
 
-    for (const item of items.slice(0, 12)) {
+    for (const item of items.slice(0, 20)) { // Increased from 12 to 20
       const tableDate = parseIndianDate(item.date);
       let circularUrl = item.href;
       let pdfContent = '';
@@ -782,7 +798,7 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
       new RegExp(`${EXCLUDE_NOISE_RE.source}|cestat|nclat|registrar\s+of\s+companies`, 'i'),
       'Tribunal Order',
       'ITAT',
-      8
+      15
     );
 
     // Also inspect ITAT Special Bench direct PDFs (Zero Captcha)
@@ -848,7 +864,7 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
       EXCLUDE_NOISE_RE,
       'High Court Judgment',
       'High Court',
-      10
+      15
     );
   }
 
@@ -861,7 +877,7 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
       EXCLUDE_NOISE_RE,
       'Judgment',
       'Supreme Court',
-      6
+      10
     );
   }
 
@@ -874,7 +890,7 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
       EXCLUDE_NOISE_RE,
       'Appellate Order',
       'CESTAT',
-      6
+      10
     );
   }
 
@@ -887,7 +903,7 @@ async function crawlJudicial(code: string): Promise<CrawledDocument[]> {
       EXCLUDE_NOISE_RE,
       'Appellate Order',
       'NCLAT / Corporate Tribunal',
-      6
+      10
     );
   }
 
