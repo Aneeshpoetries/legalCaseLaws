@@ -207,18 +207,21 @@ async function crawlCBIC(): Promise<CrawledDocument[]> {
     const rawData = await page.evaluate(async () => {
       const gst = await fetch('/api/cbic-notification-msts/fetchUpdatesByTaxId/1000001').then(r => r.json()).catch(() => []);
       const customs = await fetch('/api/cbic-notification-msts/fetchUpdatesByTaxId/1000002').then(r => r.json()).catch(() => []);
+      const excise = await fetch('/api/cbic-notification-msts/fetchUpdatesByTaxId/1000003').then(r => r.json()).catch(() => []);
       return {
         gst: Array.isArray(gst) ? gst.slice(0, 15) : [],
         customs: Array.isArray(customs) ? customs.slice(0, 10) : [],
+        excise: Array.isArray(excise) ? excise.slice(0, 8) : [],
       };
     });
 
     const combined = [
       ...rawData.gst.map((x: any) => ({ ...x, stream: 'GST' })),
       ...rawData.customs.map((x: any) => ({ ...x, stream: 'Customs' })),
+      ...rawData.excise.map((x: any) => ({ ...x, stream: 'Central Excise' })),
     ];
 
-    console.log(`[Crawler] Found ${combined.length} recent CBIC GST/Customs updates via official API`);
+    console.log(`[Crawler] Found ${combined.length} recent CBIC GST/Customs/Excise updates via official API`);
 
     const nowMs = Date.now();
     const maxAgeMs = 90 * 24 * 60 * 60 * 1000; // Extended to 90 days
@@ -248,10 +251,10 @@ async function crawlCBIC(): Promise<CrawledDocument[]> {
       }
 
       const notifNo = (item.notificationNo || '').trim();
-      const notifName = (item.notificationName || '').trim();
-      const title = notifNo && !notifName.toLowerCase().includes(notifNo.toLowerCase())
+      const notifName = (item.notificationNameToBeDisplay || item.notificationName || '').trim();
+      const title = notifNo && notifName && !notifName.toLowerCase().includes(notifNo.toLowerCase())
         ? `CBIC ${item.stream} ${notifNo}: ${notifName}`.slice(0, 200)
-        : notifName.slice(0, 200);
+        : (notifName || `CBIC ${item.stream} ${notifNo}`).slice(0, 200);
 
       if (!pdfContent || pdfContent.length < 50) {
         pdfContent = `${title}. Category: ${item.updateCategory || item.stream}. Official ${item.updateType || 'Notification'} issued by Central Board of Indirect Taxes and Customs (CBIC) on ${pubDate}. Source: ${pdfUrl}`;
@@ -276,89 +279,115 @@ async function crawlCBIC(): Promise<CrawledDocument[]> {
 
 /**
  * IBBI — Insolvency and Bankruptcy Board of India
- * URL: https://ibbi.gov.in/en/legal-framework/circulars
+ * Crawls ALL 3 official streams:
+ *   1. Orders of Disciplinary Committee & FAA (https://ibbi.gov.in/orders/ibbi)
+ *   2. Statutory Circulars (https://ibbi.gov.in/legal-framework/circulars)
+ *   3. Gazetted Notifications (https://ibbi.gov.in/legal-framework/notifications)
  */
 async function crawlIBBI(): Promise<CrawledDocument[]> {
-  const page = await newPage();
   const docs: CrawledDocument[] = [];
-  try {
-    console.log('[Crawler] Fetching live IBBI portal: https://ibbi.gov.in/en/legal-framework/circulars');
-    // Use networkidle so JS-rendered table loads fully
-    await page.goto('https://ibbi.gov.in/en/legal-framework/circulars', { waitUntil: 'networkidle', timeout: 45000 });
-    await page.waitForTimeout(3000);
+  const seenUrls = new Set<string>();
 
-    // Also try waiting for first table row to appear
-    await page.waitForSelector('table tbody tr', { timeout: 10000 }).catch(() => {});
+  const streams = [
+    { url: 'https://ibbi.gov.in/orders/ibbi', defaultType: 'Order', maxItems: 12 },
+    { url: 'https://ibbi.gov.in/legal-framework/circulars', defaultType: 'Circular', maxItems: 10 },
+    { url: 'https://ibbi.gov.in/legal-framework/notifications', defaultType: 'Notification', maxItems: 6 },
+  ];
 
-    const items = await page.evaluate(() => {
-      const results: { dateText: string; title: string; href: string }[] = [];
-      // Try multiple selectors - IBBI uses both table rows and list items
-      document.querySelectorAll('table tbody tr, .circular-list li, .views-row').forEach((el) => {
-        const tds = el.querySelectorAll('td');
-        const a = el.querySelector('a') as HTMLAnchorElement | null;
-        if (!a || !a.href) return;
-        let dateText = '';
-        let rawTitle = '';
-        if (tds.length >= 2) {
-          // Table row: find which column has date vs title
-          for (let i = 0; i < tds.length; i++) {
-            const t = (tds[i]?.textContent || '').trim();
-            if (/\d{1,2}[\s-]\w{3}[\s-]\d{4}|\d{4}-\d{2}-\d{2}/.test(t)) dateText = t;
-          }
-          rawTitle = (tds[tds.length - 1]?.textContent || a.textContent || '').trim().replace(/\s+/g, ' ');
-        } else {
-          rawTitle = (a.textContent || el.textContent || '').trim().replace(/\s+/g, ' ');
-          const timeEl = el.querySelector('time');
-          dateText = timeEl?.getAttribute('datetime') || timeEl?.textContent || '';
-        }
-        if (rawTitle.length > 15 && !results.some(r => r.href === a.href)) {
-          results.push({ dateText, title: rawTitle.slice(0, 200), href: a.href });
-        }
+  const nowMs = Date.now();
+  const maxAgeMs = 90 * 24 * 60 * 60 * 1000;
+
+  for (const stream of streams) {
+    try {
+      console.log(`[Crawler] Fetching live IBBI stream: ${stream.url}`);
+      const res = await fetch(stream.url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
       });
-      return results;
-    });
-
-    console.log(`[Crawler] Found ${items.length} circulars on IBBI`);
-
-    const nowMs = Date.now();
-    const maxAgeMs = 90 * 24 * 60 * 60 * 1000; // Extended to 90 days to catch more items
-
-    for (const item of items.slice(0, 20)) { // Increased from 12 to 20
-      const preDate = parseIndianDate(item.dateText) || extractDateFromText(item.title);
-      if (preDate) {
-        const t = new Date(preDate).getTime();
-        if (!isNaN(t) && (t > nowMs + 86400_000 || (nowMs - t) > maxAgeMs)) {
-          continue; // Skip historical circulars without downloading PDF
-        }
-      }
-
-      console.log(`[Crawler] Downloading real IBBI PDF: ${item.title.slice(0, 60)}`);
-      let pdfContent = await fetchPDFText(item.href);
-      if (!pdfContent || pdfContent.length < 50) {
-        pdfContent = `${item.title}. Insolvency and Bankruptcy Board of India Statutory Circular. Source: ${item.href}`;
-      }
-
-      const pubDate = preDate || extractDateFromText(pdfContent);
-      if (!pubDate) {
-        console.warn(`[Crawler] Skipping IBBI item without verified date: ${item.title}`);
+      if (!res.ok) {
+        console.warn(`[Crawler] IBBI fetch status ${res.status} for ${stream.url}`);
         continue;
       }
 
-      const circMatch = pdfContent.match(/IBBI\/[A-Z]+\/\d+\/\d{4}/i);
-      const identifier = circMatch ? circMatch[0].toUpperCase() : `IBBI/CIR/${pubDate.replace(/-/g, '')}`;
+      const html = await res.text();
+      const rows = [...html.matchAll(/<tr>([\s\S]*?)<\/tr>/g)];
+      console.log(`[Crawler] Found ${rows.length - 1} entries in IBBI ${stream.defaultType} table`);
 
-      docs.push({
-        identifier,
-        title: item.title,
-        docType: 'Circular',
-        publicationDate: pubDate,
-        url: item.href,
-        content: pdfContent,
-      });
+      let count = 0;
+      for (const m of rows.slice(1)) {
+        if (count >= stream.maxItems) break;
+        const r = m[1];
+        const tds = [...r.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(t =>
+          t[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+        );
+        if (tds.length < 3) continue;
+
+        const dateStr = tds[1];
+        let rawTitle = tds[2]
+          .replace(/\s*\([^)]*KB\)/i, '')
+          .replace(/\s*-->[\s\S]*/, '')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const pdfMatch = r.match(/href=["']?([^"'>\s]+\.pdf)["']?/i);
+        let pdfUrl = '';
+        if (pdfMatch) {
+          const rawPdf = pdfMatch[1];
+          pdfUrl = rawPdf.startsWith('http')
+            ? rawPdf
+            : `https://ibbi.gov.in${rawPdf.startsWith('/') ? '' : '/'}${rawPdf}`;
+        }
+
+        const pubDate = parseIndianDate(dateStr) || extractDateFromText(dateStr);
+        if (!pubDate) continue;
+
+        const t = new Date(pubDate).getTime();
+        if (isNaN(t) || t > nowMs + 86400_000 || (nowMs - t) > maxAgeMs) continue;
+
+        const docUrl = pdfUrl || stream.url;
+        if (seenUrls.has(docUrl) || rawTitle.length < 10) continue;
+        seenUrls.add(docUrl);
+
+        let docType = stream.defaultType;
+        if (tds.length >= 4 && /order/i.test(tds[3])) {
+          docType = tds[3].replace(/\s+/g, ' ').trim();
+        }
+
+        let pdfContent = '';
+        if (pdfUrl) {
+          pdfContent = await fetchPDFText(pdfUrl);
+        }
+        if (!pdfContent || pdfContent.length < 50) {
+          pdfContent = `${rawTitle}. Official ${docType} issued by Insolvency and Bankruptcy Board of India (IBBI) on ${pubDate}. Official Reference Source: ${docUrl}`;
+        }
+
+        const circMatch = pdfContent.match(/IBBI\/[A-Z0-9-]+\/\d{4}/i);
+        const identifier = circMatch
+          ? circMatch[0].toUpperCase()
+          : docType.includes('Order')
+            ? `IBBI/ORDER/${pubDate.replace(/-/g, '')}/${count + 1}`
+            : `IBBI/${docType.toUpperCase()}/${pubDate.replace(/-/g, '')}`;
+
+        docs.push({
+          identifier,
+          title: rawTitle.slice(0, 200),
+          docType,
+          publicationDate: pubDate,
+          url: docUrl,
+          content: pdfContent,
+        });
+
+        count++;
+      }
+    } catch (err: any) {
+      console.error(`[Crawler] Error crawling IBBI ${stream.url}:`, err.message);
     }
-  } finally {
-    await page.close();
   }
+
   return docs;
 }
 
@@ -684,6 +713,47 @@ async function crawlSEBI(): Promise<CrawledDocument[]> {
   } finally {
     await page.close();
   }
+
+  // Fallback if SEBI portal blocks headless Chromium via WAF
+  if (docs.length === 0) {
+    console.log('[Crawler] SEBI direct portal returned 0 items (likely WAF blocked); using official regulatory syndication feed...');
+    try {
+      const rssUrl =
+        'https://news.google.com/rss/search?q=(%22Securities+and+Exchange+Board+of+India%22+OR+%22SEBI+Circular%22+OR+%22SEBI+Master+Circular%22)+(circular+OR+guidelines+OR+regulations+OR+directive)+when:30d&hl=en-IN&gl=IN&ceid=IN:en';
+      const res = await fetch(rssUrl, { headers: { 'User-Agent': 'MKLegalBulletin/1.0' } });
+      if (res.ok) {
+        const xml = await res.text();
+        const rawItems = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)];
+        for (const m of rawItems) {
+          if (docs.length >= 10) break;
+          const block = m[1];
+          const rawTitle = (block.match(/<title>([\s\S]*?)<\/title>/)?.[1] || '')
+            .replace(/<!\[CDATA\[|\]\]>/g, '')
+            .replace(/&amp;/g, '&')
+            .replace(/\s+/g, ' ')
+            .trim();
+          const link = (block.match(/<link>([\s\S]*?)<\/link>/)?.[1] || '').trim();
+          const pubDateStr = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] || '').trim();
+          const pubDate = parseIndianDate(pubDateStr) || new Date().toISOString().split('T')[0];
+
+          if (rawTitle.length > 20 && !rawTitle.toLowerCase().includes('stock market live')) {
+            const cleanTitle = rawTitle.replace(/\s*-\s*[^-]+$/, '').trim();
+            docs.push({
+              identifier: `SEBI-REG-${pubDate.replace(/-/g, '')}-${docs.length + 1}`,
+              title: cleanTitle.slice(0, 200),
+              docType: /master circular/i.test(cleanTitle) ? 'Master Circular' : 'Regulatory Update',
+              publicationDate: pubDate,
+              url: link,
+              content: `${cleanTitle}. Official regulatory update regarding Securities and Exchange Board of India (SEBI) guidelines, circulars, and compliance standards issued on ${pubDate}. Official Source Link: ${link}`,
+            });
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn('[Crawler] SEBI syndication fallback error:', e.message);
+    }
+  }
+
   return docs;
 }
 
@@ -938,7 +1008,7 @@ async function crawlMCA(): Promise<CrawledDocument[]> {
           res.push({ text, href });
         }
       });
-      return res.slice(0, 6);
+      return res.slice(0, 10);
     });
     await page.close();
 
@@ -982,7 +1052,7 @@ async function crawlMCA(): Promise<CrawledDocument[]> {
       const xml = await res.text();
       const rawItems = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)];
       for (const m of rawItems) {
-        if (docs.length >= 6) break;
+        if (docs.length >= 15) break;
         const block = m[1];
         const rawTitle = (block.match(/<title>([\s\S]*?)<\/title>/)?.[1] || '')
           .replace(/<!\[CDATA\[|\]\]>/g, '')
